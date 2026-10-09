@@ -67,9 +67,20 @@ const Upload = (() => {
   function init() {
     const form = $("#upload-form"), dz = $("#dropzone"), input = $("#upload-file");
     input.onchange = () => $("#upload-filename").textContent = input.files[0]?.name || "";
-    ["dragenter", "dragover"].forEach((e) => dz.addEventListener(e, () => dz.classList.add("drag")));
-    ["dragleave", "drop"].forEach((e) => dz.addEventListener(e, () => dz.classList.remove("drag")));
-    form.onsubmit = (e) => { e.preventDefault(); upload(form); };
+    ["dragenter", "dragover"].forEach((e) => dz.addEventListener(e, (ev) => { ev.preventDefault(); dz.classList.add("drag"); }));
+    dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+    dz.addEventListener("drop", (ev) => {
+      ev.preventDefault(); dz.classList.remove("drag");
+      if (ev.dataTransfer?.files?.length) { input.files = ev.dataTransfer.files; input.onchange(); }
+    });
+    form.onsubmit = (e) => {
+      e.preventDefault();
+      if (!input.files.length) {
+        $("#upload-result").innerHTML = `<div class="alert error">Choose a video file first: click the box above or drag a file onto it.</div>`;
+        return;
+      }
+      upload(form);
+    };
     Bus.on("locations-changed", () => fillLocationSelect($("#upload-location"), { includeNone: true, selected: $("#upload-location").value }));
   }
 

@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+data/
+outputs/*
+!outputs/.gitkeep
+sample_videos/*
+!sample_videos/README.md
+models/*.pt
+*.db
+.env

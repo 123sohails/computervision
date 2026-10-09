@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%226%22 fill=%22%234f8cff%22/%3E%3C/svg%3E">
+  <title>CampusVision AI</title>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">◉</span> CampusVision <span class="muted">AI</span></div>
+  <nav class="tabs">
+    <button data-tab="dashboard" class="active">Dashboard</button>
+    <button data-tab="upload">Upload</button>
+    <button data-tab="zones">Zones</button>
+    <button data-tab="locations">Locations &amp; rules</button>
+  </nav>
+</header>
+
+<main>
+  <!-- DASHBOARD -->
+  <section id="tab-dashboard" class="tab active">
+    <div class="toolbar">
+      <label>Analysis job
+        <select id="job-select"></select>
+      </label>
+      <button id="job-refresh" class="ghost">Refresh</button>
+      <div id="job-status" class="job-status"></div>
+    </div>
+    <div id="job-empty" class="empty hidden">No analysis jobs yet. Upload a video to get started.</div>
+
+    <div id="job-view" class="hidden">
+      <div id="job-progress" class="progress hidden"><div class="bar"></div><span></span></div>
+      <div id="job-error" class="alert error hidden"></div>
+      <div id="job-warnings" class="alert warn hidden"></div>
+
+      <div class="kpis">
+        <div class="kpi"><div class="label">People in view</div><div class="value" id="kpi-people">–</div><div class="sub" id="kpi-people-sub"></div></div>
+        <div class="kpi"><div class="label">Queue count</div><div class="value" id="kpi-queue">–</div><div class="sub" id="kpi-queue-sub"></div></div>
+        <div class="kpi"><div class="label">Occupancy</div><div class="value" id="kpi-occ">–</div><div class="sub" id="kpi-occ-sub"></div></div>
+        <div class="kpi"><div class="label">Entries / exits</div><div class="value" id="kpi-flow">–</div><div class="sub" id="kpi-flow-sub"></div></div>
+        <div class="kpi"><div class="label">Congestion status</div><div class="value" id="kpi-status">–</div><div class="sub" id="kpi-status-sub"></div></div>
+      </div>
+      <p class="hint">Cards follow the video playhead. Values are measured from the processed video; "n/a" means the required zone is not configured.</p>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Annotated video <span class="muted" id="video-meta"></span></h3>
+          <video id="job-video" controls muted playsinline></video>
+          <div class="downloads">
+            <a id="dl-video" class="btn ghost">Annotated MP4</a>
+            <a id="dl-csv" class="btn ghost">Metrics CSV</a>
+            <a id="dl-json" class="btn ghost">Report JSON</a>
+            <a id="dl-det" class="btn ghost">Detections CSV</a>
+            <button id="job-reprocess" class="ghost">Re-run with current zones</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>People, queue &amp; occupancy over time</h3>
+          <div class="chart-box"><canvas id="chart-counts"></canvas></div>
+          <h3>Cumulative entries &amp; exits</h3>
+          <div class="chart-box small"><canvas id="chart-flow"></canvas></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Congestion events</h3>
+          <table class="table" id="events-table">
+            <thead><tr><th>Time</th><th>Type</th><th>Zone</th><th>Why it was raised</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="card">
+          <h3>Zone summary</h3>
+          <table class="table" id="zones-table">
+            <thead><tr><th>Zone</th><th>Peak</th><th>Mean</th><th>Dwell (median, fully observed)</th><th>Alerting</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <h3>Run statistics</h3>
+          <dl class="stats" id="run-stats"></dl>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3>Approximate density heatmap</h3>
+          <img id="img-heatmap" alt="heatmap">
+          <p class="hint">Image-space density; perspective means distant regions cover more floor per pixel.</p>
+        </div>
+        <div class="card">
+          <h3>Movement trails</h3>
+          <img id="img-trails" alt="movement trails">
+          <p class="hint">One colour per temporary track ID.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- UPLOAD -->
+  <section id="tab-upload" class="tab">
+    <div class="grid-2">
+      <div class="card">
+        <h3>Upload a recorded video</h3>
+        <form id="upload-form">
+          <label>Campus location
+            <select id="upload-location" name="location_id"></select>
+          </label>
+          <div id="dropzone" class="dropzone">
+            <input type="file" id="upload-file" name="file" accept="video/*,.avi,.mkv,.mov,.m4v,.webm">
+            <p>Drop an MP4 / AVI / MOV here or click to choose.<br><span class="muted">Landscape 1280×720 or 1920×1080 from a fixed camera works best.</span></p>
+            <p id="upload-filename" class="filename"></p>
+          </div>
+          <details>
+            <summary>Processing settings</summary>
+            <div class="form-row">
+              <label>Frame stride <input type="number" name="frame_stride" min="1" max="30" placeholder="2"></label>
+              <label>Confidence <input type="number" name="conf_threshold" min="0.05" max="0.95" step="0.05" placeholder="0.35"></label>
+              <label>Model input size <input type="number" name="imgsz" min="320" max="1920" step="32" placeholder="640"></label>
+            </div>
+          </details>
+          <label class="check"><input type="checkbox" name="auto_process" checked> Start analysis immediately (uses the location's current zones)</label>
+          <button type="submit" class="primary">Upload</button>
+          <div id="upload-progress" class="progress hidden"><div class="bar"></div><span></span></div>
+          <div id="upload-result"></div>
+        </form>
+      </div>
+      <div class="card">
+        <h3>Uploaded videos</h3>
+        <table class="table" id="videos-table">
+          <thead><tr><th>File</th><th>Location</th><th>Format</th><th>Duration</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ZONES -->
+  <section id="tab-zones" class="tab">
+    <div class="toolbar">
+      <label>Location <select id="zones-location"></select></label>
+      <label>Reference video <select id="zones-video"></select></label>
+      <label>Frame at <input type="range" id="zones-time" min="0" max="1" step="0.1" value="0"> <span id="zones-time-label">0.0 s</span></label>
+    </div>
+    <div class="zones-layout">
+      <div class="card editor-card">
+        <div id="editor-wrap" class="editor-wrap">
+          <img id="editor-img" alt="">
+          <canvas id="editor-canvas"></canvas>
+          <div id="editor-empty" class="empty">Upload a video for this location to draw zones on its frame.</div>
+        </div>
+        <p class="hint" id="editor-hint">Choose a zone type and click on the frame to add points. Polygons: click the first point or press Enter to close. Lines: two clicks; the arrow points in the "entry" direction. Drag points to adjust. Esc cancels.</p>
+      </div>
+      <div class="card side">
+        <h3 id="zone-form-title">New zone</h3>
+        <form id="zone-form">
+          <label>Type
+            <select name="zone_type">
+              <option value="QUEUE_ZONE">Queue zone</option>
+              <option value="OCCUPANCY_ZONE">Occupancy zone</option>
+              <option value="ENTRY_LINE">Entry line</option>
+              <option value="EXIT_LINE">Exit line</option>
+              <option value="EXCLUSION_ZONE">Exclusion zone</option>
+            </select>
+          </label>
+          <label>Name <input name="name" required maxlength="80" placeholder="e.g. Serving counter queue"></label>
+          <label class="only-OCCUPANCY_ZONE">Capacity (people) <input name="capacity" type="number" min="1" placeholder="from site specification"></label>
+          <label class="only-QUEUE_ZONE">Queue alert threshold <input name="queue_threshold" type="number" min="1" placeholder="location default"></label>
+          <label class="only-OCCUPANCY_ZONE">Occupancy alert % <input name="occupancy_pct_threshold" type="number" min="1" max="200" placeholder="location default"></label>
+          <label class="check only-ENTRY_LINE only-EXIT_LINE"><input type="checkbox" name="bidirectional" checked> Count both directions</label>
+          <div class="row">
+            <button type="button" id="zone-reverse" class="ghost only-ENTRY_LINE only-EXIT_LINE">Reverse direction</button>
+            <button type="button" id="zone-clear" class="ghost">Clear points</button>
+          </div>
+          <div class="row">
+            <button type="submit" class="primary">Save zone</button>
+            <button type="button" id="zone-new" class="ghost">New</button>
+            <button type="button" id="zone-delete" class="danger hidden">Delete</button>
+          </div>
+          <p id="zone-msg" class="msg"></p>
+        </form>
+        <h3>Zones in this location</h3>
+        <ul id="zone-list" class="zone-list"></ul>
+        <p class="hint">Coordinates are stored relative to frame size, so the same configuration works for other resolutions of the same camera view. Re-run analysis after changing zones.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOCATIONS -->
+  <section id="tab-locations" class="tab">
+    <div class="grid-2">
+      <div class="card">
+        <h3>Locations</h3>
+        <ul id="location-list" class="zone-list"></ul>
+        <form id="location-create" class="row">
+          <input name="name" placeholder="New location name" required>
+          <button class="primary">Add location</button>
+        </form>
+      </div>
+      <div class="card">
+        <h3 id="rules-title">Congestion rules</h3>
+        <form id="rules-form">
+          <label>Name <input name="name" required></label>
+          <label>Description <input name="description"></label>
+          <div id="rules-fields" class="rules-grid"></div>
+          <div class="row">
+            <button class="primary">Save rules</button>
+            <button type="button" id="location-delete" class="danger">Delete location</button>
+          </div>
+          <p id="rules-msg" class="msg"></p>
+        </form>
+        <p class="hint">Rules are explicit configuration, not AI-discovered limits. Zone-level overrides (set in the Zones tab) take precedence.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="vendor/chart.umd.min.js"></script>
+<script src="scripts/api.js"></script>
+<script src="scripts/dashboard.js"></script>
+<script src="scripts/upload.js"></script>
+<script src="scripts/zones.js"></script>
+<script src="scripts/locations.js"></script>
+<script src="scripts/app.js"></script>
+</body>
+</html>

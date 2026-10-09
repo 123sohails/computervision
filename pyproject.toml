@@ -1,0 +1,10 @@
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B"]
+ignore = ["E501", "B008", "B905"]  # B008: FastAPI File()/Form() defaults are idiomatic
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
